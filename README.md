@@ -89,3 +89,7 @@ The application handles edge cases cleanly:
 *   **Missing Metrics**: Will not break the math engine. Missing source data yields a null field, causing the frontend formatter to fallback to `"Data unavailable"` and the principle engine to fallback to a neutral `"Unavailable"` state.
 *   **Dynamic Rule Updates**: Clicking "Configure Criteria" allows you to change a threshold (e.g., ROE > 20%). The backend instantly saves this and regenerates the AI investment thesis context to match your stricter rules.
 
+*   <img width="1440" height="809" alt="Screenshot 2026-10-07 at 5 26 45 PM" src="https://github.com/user-attachments/assets/ef1dc49d-cd01-4bf3-987b-55cf5637c9cc" />
+<img width="1440" height="809" alt="Screenshot 2026-10-07 at 5 27 26 PM" src="https://github.com/user-attachments/assets/463f35fc-8bce-4be3-9d84-f65d1e2e83f7" />
+
+
