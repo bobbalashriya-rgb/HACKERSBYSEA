@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, AlertCircle, Settings, Check, GitCompare, Database, Calculator, CheckCircle } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Settings, Check, GitCompare, Database, Calculator, CheckCircle, X } from 'lucide-react';
 import { analyzeCompany, fetchPrinciples, updatePrinciple, compareCompanies } from '../services/api';
 import CompanyOverview from '../components/CompanyOverview';
 import MetricGrid from '../components/MetricGrid';
@@ -9,7 +9,7 @@ import AISection from '../components/AISection';
 import AskFinolitics from '../components/AskFinolitics';
 import ComparisonView from '../components/ComparisonView';
 
-export default function Dashboard({ externalMode, setExternalMode }) {
+export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
     const [mode, setMode] = useState('single');
     const [ticker, setTicker] = useState('');
     const [data, setData] = useState(null);
@@ -27,33 +27,42 @@ export default function Dashboard({ externalMode, setExternalMode }) {
     }, []);
 
     useEffect(() => {
-        if (externalMode === 'single') {
+        setError(null);
+        if (externalMode === 'overview') {
+            setData(null);
+            setCompareData(null);
+            setLoading(false);
+            setShowConfig(false);
+            setMode('single');
+        } else if (externalMode === 'single') {
             setMode('single');
             setShowConfig(false);
         } else if (externalMode === 'compare') {
             setMode('compare');
             setShowConfig(false);
-            if (ticker && !ticker1) {
-                setTicker1(ticker);
-            }
         } else if (externalMode === 'config') {
             setShowConfig(true);
-        } else if (externalMode === 'overview') {
-            setData(null);
-            setCompareData(null);
-            setShowConfig(false);
         }
-    }, [externalMode]);
+    }, [externalMode, resetKey]);
 
     const switchMode = (newMode) => {
         setMode(newMode);
+        setError(null);
         if (setExternalMode) setExternalMode(newMode);
-        if (newMode === 'compare' && ticker && !ticker1) {
-            setTicker1(ticker);
-        }
+    };
+
+    const handleResetToHome = () => {
+        setData(null);
+        setCompareData(null);
+        setError(null);
+        setLoading(false);
+        setShowConfig(false);
+        setMode('single');
+        if (setExternalMode) setExternalMode('overview');
     };
 
     const handlePopularClick = (t) => {
+        setError(null);
         if (mode === 'compare') {
             if (!ticker1 || (ticker1 && ticker2)) {
                 setTicker1(t);
@@ -73,20 +82,22 @@ export default function Dashboard({ externalMode, setExternalMode }) {
         
         setLoading(true);
         setError(null);
-        setData(null);
-        setCompareData(null);
         setShowConfig(false);
         
         try {
             if (mode === 'single') {
-                const result = await analyzeCompany(ticker);
+                const result = await analyzeCompany(ticker.trim());
                 setData(result);
+                setCompareData(null);
             } else {
-                const result = await compareCompanies([ticker1, ticker2]);
+                const result = await compareCompanies([ticker1.trim(), ticker2.trim()]);
                 setCompareData(result);
+                setData(null);
             }
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'An unexpected error occurred.');
+            setData(null);
+            setCompareData(null);
         } finally {
             setLoading(false);
         }
@@ -108,7 +119,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 setLoading(false);
             } else if (mode === 'compare' && compareData) {
                 setLoading(true);
-                const result = await compareCompanies([ticker1, ticker2]);
+                const result = await compareCompanies([ticker1.trim(), ticker2.trim()]);
                 setCompareData(result);
                 setLoading(false);
             }
@@ -117,20 +128,22 @@ export default function Dashboard({ externalMode, setExternalMode }) {
         }
     };
 
-    const isInitialScreen = !data && !compareData && !loading && !error && !showConfig;
+    const hasResults = Boolean(data || compareData);
+    const showHero = !hasResults && !loading;
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {isInitialScreen && (
-                <div className="text-center py-16 px-4 mt-4">
-                    <h1 className="text-5xl md:text-6xl font-extrabold text-[#C3D2FB] mb-6 tracking-tight max-w-4xl mx-auto leading-tight">
+            {/* HERO / INITIAL SEARCH VIEW */}
+            {showHero && (
+                <div className="text-center py-12 px-4">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#C3D2FB] mb-6 tracking-tight max-w-4xl mx-auto leading-tight">
                         {mode === 'compare' ? (
                             <>Compare companies with<br/>institutional precision &<br/>zero hallucination.</>
                         ) : (
                             <>Turn financial data into<br/>understandable investment<br/>research.</>
                         )}
                     </h1>
-                    <p className="text-[#8B9CC3] text-lg max-w-3xl mx-auto mb-10">
+                    <p className="text-[#8B9CC3] text-base sm:text-lg max-w-3xl mx-auto mb-8">
                         {mode === 'compare'
                             ? "Evaluate two stocks head-to-head on financial metrics, derived growth ratios, and institutional rules."
                             : "Evaluate real statements from Yfinance against institutional principles with complete calculation transparency."}
@@ -139,23 +152,50 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                     <div className="flex justify-center gap-2 mb-6">
                         <button
                             onClick={() => switchMode('single')}
-                            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${mode === 'single' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800'}`}
+                            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${mode === 'single' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800'}`}
                         >
                             Single Analysis
                         </button>
                         <button
                             onClick={() => switchMode('compare')}
-                            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center ${mode === 'compare' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800'}`}
+                            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center ${mode === 'compare' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800'}`}
                         >
                             <GitCompare className="h-4 w-4 mr-2" />
                             Compare Companies
                         </button>
                     </div>
 
+                    {/* ERROR BANNER ON INITIAL / SEARCH VIEW */}
+                    {error && (
+                        <div className="max-w-2xl mx-auto mb-6 rounded-xl bg-red-950/40 p-4 border border-red-800/60 flex items-start justify-between shadow-lg text-left animate-in fade-in">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <h4 className="text-sm font-bold text-red-300">Analysis Error</h4>
+                                    <p className="mt-0.5 text-sm text-red-200/80 leading-relaxed">{error}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                <button 
+                                    onClick={() => setError(null)}
+                                    className="text-red-300 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-md bg-red-900/50 hover:bg-red-800/60 border border-red-700/60 transition-colors"
+                                >
+                                    Dismiss
+                                </button>
+                                <button 
+                                    onClick={handleResetToHome}
+                                    className="text-slate-300 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <form onSubmit={handleAnalyze} className="max-w-2xl mx-auto mb-8">
                         {mode === 'single' ? (
-                            <div className="relative flex items-center bg-[#131B2F] border border-[#2A344A] rounded-xl overflow-hidden shadow-lg p-1">
-                                <div className="pl-4 text-slate-400">
+                            <div className="relative flex items-center bg-[#131B2F] border border-[#2A344A] rounded-xl overflow-hidden shadow-lg p-1.5">
+                                <div className="pl-3.5 text-slate-400">
                                     <Search className="h-5 w-5" />
                                 </div>
                                 <input
@@ -163,13 +203,13 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                                     value={ticker}
                                     onChange={(e) => setTicker(e.target.value)}
                                     placeholder="Enter company ticker (e.g. NVDA, AAPL)"
-                                    className="w-full bg-transparent border-none text-white px-4 py-3 focus:outline-none focus:ring-0 placeholder-slate-500"
+                                    className="w-full bg-transparent border-none text-white px-4 py-3 focus:outline-none focus:ring-0 placeholder-slate-500 font-medium"
                                     disabled={loading}
                                 />
                                 <button
                                     type="submit"
                                     disabled={loading || !ticker.trim()}
-                                    className="bg-[#1C2C4F] hover:bg-[#253966] text-blue-300 font-medium px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-md disabled:opacity-50"
                                 >
                                     Analyze Company →
                                 </button>
@@ -181,7 +221,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                                     value={ticker1}
                                     onChange={(e) => setTicker1(e.target.value)}
                                     placeholder="Company 1 (e.g. TCS.NS)"
-                                    className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500"
+                                    className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500 font-medium"
                                     disabled={loading}
                                 />
                                 <span className="text-slate-400 font-bold text-xs uppercase px-1">VS</span>
@@ -190,13 +230,13 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                                     value={ticker2}
                                     onChange={(e) => setTicker2(e.target.value)}
                                     placeholder="Company 2 (e.g. INFY.NS)"
-                                    className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500"
+                                    className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500 font-medium"
                                     disabled={loading}
                                 />
                                 <button
                                     type="submit"
                                     disabled={loading || !ticker1.trim() || !ticker2.trim()}
-                                    className="w-full sm:w-auto bg-[#1C2C4F] hover:bg-[#253966] text-blue-300 font-medium px-6 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
+                                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap shadow-md disabled:opacity-50"
                                 >
                                     Compare →
                                 </button>
@@ -221,7 +261,8 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 </div>
             )}
 
-            {(!isInitialScreen || showConfig) && (
+            {/* COMPACT TOP SEARCH BAR (VISIBLE WHEN RESULTS ARE DISPLAYED) */}
+            {hasResults && !loading && (
                 <div className="mb-6 bg-[#131B2F] p-5 rounded-xl shadow-sm border border-slate-800">
                     <div className="flex flex-col sm:flex-row gap-4 mb-5">
                         <div className="flex gap-2">
@@ -260,7 +301,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                                     value={ticker}
                                     onChange={(e) => setTicker(e.target.value)}
                                     placeholder="Enter Company Ticker (e.g. AAPL, TCS.NS)"
-                                    className="block w-full pl-11 pr-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow"
+                                    className="block w-full pl-11 pr-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow font-medium"
                                     disabled={loading}
                                 />
                             </div>
@@ -271,7 +312,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                                     value={ticker1}
                                     onChange={(e) => setTicker1(e.target.value)}
                                     placeholder="Company 1 (e.g. TCS.NS)"
-                                    className="block w-1/2 px-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow"
+                                    className="block w-1/2 px-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow font-medium"
                                     disabled={loading}
                                 />
                                 <input
@@ -279,7 +320,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                                     value={ticker2}
                                     onChange={(e) => setTicker2(e.target.value)}
                                     placeholder="Company 2 (e.g. INFY.NS)"
-                                    className="block w-1/2 px-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow"
+                                    className="block w-1/2 px-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow font-medium"
                                     disabled={loading}
                                 />
                             </div>
@@ -297,10 +338,41 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 </div>
             )}
 
+            {/* ERROR BANNER WHEN RESULTS WERE ACTIVE */}
+            {hasResults && error && (
+                <div className="rounded-xl bg-red-950/40 p-4 mb-6 border border-red-800/60 flex items-start justify-between shadow-lg animate-in fade-in">
+                    <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <h4 className="text-sm font-bold text-red-300">Analysis Error</h4>
+                            <p className="mt-0.5 text-sm text-red-200/80 leading-relaxed">{error}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setError(null)}
+                        className="text-red-300 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-md bg-red-900/50 hover:bg-red-800/60 border border-red-700/60 transition-colors ml-4"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
+
+            {/* PRINCIPLES CONFIGURATION PANEL */}
             {showConfig && (
                 <div className="mb-8 bg-[#131B2F] p-6 rounded-xl shadow-inner border border-slate-800 animate-in slide-in-from-top-2">
-                    <h3 className="text-lg font-bold text-white mb-2">Investment Principle Thresholds</h3>
-                    <p className="text-sm text-slate-400 mb-6 max-w-3xl leading-relaxed">Adjusting these mathematical thresholds auto-saves to the database. The system will instantly recalculate the raw yfinance metrics and instruct the Gemini AI to regenerate the qualitative Investment Thesis based on your new strict criteria.</p>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-bold text-white">Investment Principle Thresholds</h3>
+                        <button
+                            onClick={() => { setShowConfig(false); if (setExternalMode) setExternalMode(mode); }}
+                            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                            title="Close settings"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <p className="text-sm text-slate-400 mb-6 max-w-3xl leading-relaxed">
+                        Adjusting these mathematical thresholds auto-saves to the database. The system will instantly recalculate raw financial metrics and re-evaluate qualitative theses.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {principles.map(p => (
                             <div key={p.identifier} className="bg-[#0A0F1C] p-4 rounded-lg shadow-sm border border-slate-800 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-shadow">
@@ -322,6 +394,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 </div>
             )}
 
+            {/* DYNAMIC LOADING SCREEN */}
             {loading && (
                 <div className="max-w-3xl mx-auto mt-12 bg-[#131B2F] border border-slate-800/60 rounded-2xl p-12 text-center shadow-2xl animate-in fade-in">
                     <div className="relative w-20 h-20 mx-auto mb-6">
@@ -329,12 +402,14 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                         <div className="absolute inset-0 border-4 border-t-[#3B82F6] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                     </div>
                     <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
-                        {mode === 'compare' ? `Comparing ${ticker1.toUpperCase() || 'Company 1'} vs ${ticker2.toUpperCase() || 'Company 2'}...` : `Analyzing ${ticker.toUpperCase() || 'Company'}...`}
+                        {mode === 'compare'
+                            ? `Comparing ${(ticker1.trim() || 'Company 1').toUpperCase()} vs ${(ticker2.trim() || 'Company 2').toUpperCase()}...`
+                            : `Analyzing ${(ticker.trim() || 'Company').toUpperCase()}...`}
                     </h3>
                     <p className="text-[#8B9CC3] mb-10 max-w-lg mx-auto text-sm leading-relaxed">
                         {mode === 'compare'
-                            ? "Gathering official statements for both companies via Yfinance, computing comparative metrics, and evaluating principle rules."
-                            : "Gathering official statements via Yfinance, computing derived metrics, and testing against configured principles."}
+                            ? `Gathering official statements for ${(ticker1.trim() || 'Company 1').toUpperCase()} and ${(ticker2.trim() || 'Company 2').toUpperCase()} via Yfinance, computing comparative metrics, and evaluating principle rules.`
+                            : `Gathering official statements for ${(ticker.trim() || 'Company').toUpperCase()} via Yfinance, computing derived metrics, and testing against configured principles.`}
                     </p>
                     <div className="flex flex-wrap justify-center gap-4 text-xs font-medium">
                         <div className="flex items-center gap-2 bg-[#0A0F1C] border border-slate-800 text-slate-300 px-4 py-2.5 rounded-lg">
@@ -350,18 +425,9 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 </div>
             )}
 
-            {error && (
-                <div className="rounded-xl bg-red-900/20 p-5 mb-8 border border-red-900/50 flex shadow-sm animate-in fade-in">
-                    <AlertCircle className="h-6 w-6 text-red-500 mr-4 flex-shrink-0" />
-                    <div>
-                        <h3 className="text-sm font-bold text-red-400">Analysis Error</h3>
-                        <p className="mt-1 text-sm text-red-300/80 leading-relaxed">{error}</p>
-                    </div>
-                </div>
-            )}
-
+            {/* SINGLE ANALYSIS RESULTS */}
             {mode === 'single' && data && !loading && (
-                <div className={`space-y-8 transition-all duration-300 animate-in fade-in`}>
+                <div className="space-y-8 transition-all duration-300 animate-in fade-in">
                     <CompanyOverview profile={data.company_data?.profile} />
                     <MetricGrid metrics={data.metrics} />
                     <HistoricalCharts historicalData={data.metrics?.historical_data} priceData={data.company_data?.historical_prices} />
@@ -371,8 +437,9 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 </div>
             )}
 
+            {/* PEER COMPARISON RESULTS */}
             {mode === 'compare' && compareData && !loading && (
-                <div className={`transition-all duration-300 animate-in fade-in`}>
+                <div className="transition-all duration-300 animate-in fade-in">
                     <ComparisonView data={compareData} />
                 </div>
             )}
