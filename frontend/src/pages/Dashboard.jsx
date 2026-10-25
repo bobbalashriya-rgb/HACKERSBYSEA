@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, AlertCircle, Settings, Check, GitCompare, Database, Calculator, CheckCircle, X } from 'lucide-react';
+import { 
+    Search, Loader2, AlertCircle, Settings, Check, GitCompare, 
+    Database, Calculator, CheckCircle, X, Building2, ArrowRight 
+} from 'lucide-react';
 import { analyzeCompany, fetchPrinciples, updatePrinciple, compareCompanies } from '../services/api';
 import CompanyOverview from '../components/CompanyOverview';
 import MetricGrid from '../components/MetricGrid';
@@ -8,6 +11,8 @@ import PrincipleEvaluations from '../components/PrincipleEvaluations';
 import AISection from '../components/AISection';
 import AskFinolitics from '../components/AskFinolitics';
 import ComparisonView from '../components/ComparisonView';
+import CompanyDirectory from '../components/CompanyDirectory';
+import { resolveTicker, searchDirectory } from '../data/companyDirectory';
 
 export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
     const [mode, setMode] = useState('single');
@@ -21,6 +26,10 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
     const [principles, setPrinciples] = useState([]);
     const [showConfig, setShowConfig] = useState(false);
     const [saveStatus, setSaveStatus] = useState({});
+
+    // Suggestions state for search inputs
+    const [singleSuggestions, setSingleSuggestions] = useState([]);
+    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
     useEffect(() => {
         fetchPrinciples().then(setPrinciples).catch(console.error);
@@ -42,6 +51,8 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
             setShowConfig(false);
         } else if (externalMode === 'config') {
             setShowConfig(true);
+        } else if (externalMode === 'directory') {
+            setShowConfig(false);
         }
     }, [externalMode, resetKey]);
 
@@ -75,22 +86,80 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
         }
     };
 
-    const handleAnalyze = async (e) => {
-        if (e) e.preventDefault();
-        if (mode === 'single' && !ticker.trim()) return;
-        if (mode === 'compare' && (!ticker1.trim() || !ticker2.trim())) return;
+    const handleTickerChange = (val) => {
+        setTicker(val);
+        if (val.trim().length >= 1) {
+            const matches = searchDirectory(val).slice(0, 5);
+            setSingleSuggestions(matches);
+            setIsSuggestionsOpen(true);
+        } else {
+            setSingleSuggestions([]);
+            setIsSuggestionsOpen(false);
+        }
+    };
+
+    const handleSelectSuggestion = (item) => {
+        setTicker(item.ticker);
+        setIsSuggestionsOpen(false);
+        handleAnalyze(null, item.ticker);
+    };
+
+    const handleSelectFromDirectory = (selectedTicker, targetMode = 'single') => {
+        setError(null);
+        setShowConfig(false);
+        if (targetMode === 'single') {
+            setMode('single');
+            setTicker(selectedTicker);
+            if (setExternalMode) setExternalMode('single');
+            handleAnalyze(null, selectedTicker);
+        } else {
+            setMode('compare');
+            if (setExternalMode) setExternalMode('compare');
+            if (!ticker1 || (ticker1 && ticker2)) {
+                setTicker1(selectedTicker);
+                setTicker2('');
+            } else {
+                setTicker2(selectedTicker);
+                handleAnalyze(null, ticker1, selectedTicker);
+            }
+        }
+    };
+
+    const handleAnalyze = async (e, customTicker1 = null, customTicker2 = null) => {
+        if (e && e.preventDefault) e.preventDefault();
+        setIsSuggestionsOpen(false);
         
+        const rawT = customTicker1 !== null ? customTicker1 : (mode === 'single' ? ticker : ticker1);
+        const rawT2 = customTicker2 !== null ? customTicker2 : ticker2;
+
+        if (mode === 'single' && !rawT.trim()) return;
+        if (mode === 'compare' && (!rawT.trim() || !rawT2.trim())) return;
+        
+        // Auto-resolve abbreviations and company names to official Yahoo Finance tickers
+        // e.g. "Infosys" -> "INFY.NS", "tcs" -> "TCS.NS", "Apple" -> "AAPL"
+        const cleanTicker = resolveTicker(rawT);
+        const cleanT1 = resolveTicker(rawT);
+        const cleanT2 = resolveTicker(rawT2);
+
+        if (mode === 'single') {
+            setTicker(cleanTicker);
+        } else {
+            setTicker1(cleanT1);
+            setTicker2(cleanT2);
+        }
+
         setLoading(true);
         setError(null);
         setShowConfig(false);
+        if (setExternalMode) setExternalMode(mode);
         
         try {
             if (mode === 'single') {
-                const result = await analyzeCompany(ticker.trim());
+                const result = await analyzeCompany(cleanTicker);
                 setData(result);
                 setCompareData(null);
             } else {
-                const result = await compareCompanies([ticker1.trim(), ticker2.trim()]);
+                const result = await compareCompanies([cleanT1, cleanT2]);
                 setCompareData(result);
                 setData(null);
             }
@@ -130,6 +199,14 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
 
     const hasResults = Boolean(data || compareData);
     const showHero = !hasResults && !loading;
+
+    if (externalMode === 'directory') {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in">
+                <CompanyDirectory onSelectTicker={handleSelectFromDirectory} />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -192,27 +269,67 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                         </div>
                     )}
 
-                    <form onSubmit={handleAnalyze} className="max-w-2xl mx-auto mb-8">
+                    <form onSubmit={handleAnalyze} className="max-w-2xl mx-auto mb-8 relative">
                         {mode === 'single' ? (
-                            <div className="relative flex items-center bg-[#131B2F] border border-[#2A344A] rounded-xl overflow-hidden shadow-lg p-1.5">
-                                <div className="pl-3.5 text-slate-400">
-                                    <Search className="h-5 w-5" />
+                            <div className="relative">
+                                <div className="relative flex items-center bg-[#131B2F] border border-[#2A344A] rounded-xl shadow-lg p-1.5 focus-within:border-blue-500 transition-colors">
+                                    <div className="pl-3.5 text-slate-400">
+                                        <Search className="h-5 w-5" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={ticker}
+                                        onChange={(e) => handleTickerChange(e.target.value)}
+                                        onFocus={() => { if (ticker.trim().length >= 1) setIsSuggestionsOpen(true); }}
+                                        onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 250)}
+                                        placeholder="Enter company name or ticker (e.g. Infosys, TCS, Apple, NVDA)"
+                                        className="w-full bg-transparent border-none text-white px-4 py-3 focus:outline-none focus:ring-0 placeholder-slate-500 font-medium text-sm sm:text-base"
+                                        disabled={loading}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={loading || !ticker.trim()}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-md disabled:opacity-50"
+                                    >
+                                        Analyze Company →
+                                    </button>
                                 </div>
-                                <input
-                                    type="text"
-                                    value={ticker}
-                                    onChange={(e) => setTicker(e.target.value)}
-                                    placeholder="Enter company ticker (e.g. NVDA, AAPL)"
-                                    className="w-full bg-transparent border-none text-white px-4 py-3 focus:outline-none focus:ring-0 placeholder-slate-500 font-medium"
-                                    disabled={loading}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={loading || !ticker.trim()}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shadow-md disabled:opacity-50"
-                                >
-                                    Analyze Company →
-                                </button>
+
+                                {/* Auto-suggest dropdown */}
+                                {isSuggestionsOpen && singleSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#131B2F] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 text-left">
+                                        <div className="px-3.5 py-2 bg-[#0A0F1C] border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                                            <span>Matching Listed Companies</span>
+                                            <span className="text-blue-400">Click to Select</span>
+                                        </div>
+                                        <div className="divide-y divide-slate-800/60 max-h-64 overflow-y-auto">
+                                            {singleSuggestions.map((item) => (
+                                                <div
+                                                    key={item.ticker}
+                                                    onMouseDown={() => handleSelectSuggestion(item)}
+                                                    className="p-3 hover:bg-blue-600/10 cursor-pointer flex items-center justify-between transition-colors group"
+                                                >
+                                                    <div>
+                                                        <div className="text-sm font-semibold text-white group-hover:text-blue-400">
+                                                            {item.name}
+                                                        </div>
+                                                        <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                                                            <span>{item.exchange} • {item.country}</span>
+                                                            <span>•</span>
+                                                            <span className="text-slate-300">{item.sector}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <code className="text-xs font-mono font-bold text-blue-400 bg-[#0A0F1C] px-2 py-1 rounded border border-blue-500/30">
+                                                            {item.ticker}
+                                                        </code>
+                                                        <ArrowRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col sm:flex-row items-center gap-3 bg-[#131B2F] border border-[#2A344A] rounded-xl p-2 shadow-lg">
@@ -220,7 +337,7 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                                     type="text"
                                     value={ticker1}
                                     onChange={(e) => setTicker1(e.target.value)}
-                                    placeholder="Company 1 (e.g. TCS.NS)"
+                                    placeholder="Company 1 (e.g. TCS or TCS.NS)"
                                     className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500 font-medium"
                                     disabled={loading}
                                 />
@@ -229,7 +346,7 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                                     type="text"
                                     value={ticker2}
                                     onChange={(e) => setTicker2(e.target.value)}
-                                    placeholder="Company 2 (e.g. INFY.NS)"
+                                    placeholder="Company 2 (e.g. Infosys or INFY.NS)"
                                     className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500 font-medium"
                                     disabled={loading}
                                 />
@@ -244,19 +361,26 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                         )}
                     </form>
 
-                    <div className="flex items-center justify-center gap-3 text-sm">
-                        <span className="text-[#64748B]">Popular:</span>
-                        <div className="flex flex-wrap justify-center gap-2">
+                    <div className="flex flex-col items-center justify-center gap-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                            <span className="text-[#64748B]">Popular:</span>
                             {['AAPL', 'MSFT', 'NVDA', 'TCS.NS', 'RELIANCE.NS', 'INFY.NS'].map(t => (
                                 <button 
                                     key={t} 
                                     onClick={() => handlePopularClick(t)} 
-                                    className="bg-[#111827]/80 border border-[#1F2937] hover:bg-[#1F2937] text-slate-300 px-4 py-1.5 rounded-md transition-colors text-xs font-medium"
+                                    className="bg-[#111827]/80 border border-[#1F2937] hover:bg-[#1F2937] text-slate-300 px-3.5 py-1.5 rounded-md transition-colors text-xs font-medium"
                                 >
                                     {t}
                                 </button>
                             ))}
                         </div>
+                        <button 
+                            onClick={() => { if (setExternalMode) setExternalMode('directory'); }}
+                            className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-3.5 py-1.5 rounded-lg font-semibold transition-colors mt-1"
+                        >
+                            <Building2 className="w-3.5 h-3.5" />
+                            Browse All Listed Companies & Abbreviations Directory →
+                        </button>
                     </div>
                 </div>
             )}
@@ -282,6 +406,13 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                         </div>
                         <div className="flex-1"></div>
                         <button 
+                            onClick={() => { if (setExternalMode) setExternalMode('directory'); }}
+                            className="inline-flex items-center px-4 py-2 border text-sm font-semibold rounded-lg bg-[#1A233A] text-slate-300 border-slate-700 hover:bg-slate-800 transition-all mr-2"
+                        >
+                            <Building2 className="h-4 w-4 mr-2 text-blue-400" />
+                            Company Directory
+                        </button>
+                        <button 
                             onClick={() => { setShowConfig(!showConfig); if (setExternalMode) setExternalMode(!showConfig ? 'config' : mode); }}
                             className={`inline-flex items-center px-5 py-2 border text-sm font-semibold rounded-lg transition-all ${showConfig ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-[#1A233A] text-slate-300 border-slate-700 hover:bg-slate-800'}`}
                         >
@@ -290,7 +421,7 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                         </button>
                     </div>
 
-                    <form onSubmit={handleAnalyze} className="flex flex-col sm:flex-row gap-4">
+                    <form onSubmit={handleAnalyze} className="flex flex-col sm:flex-row gap-4 relative">
                         {mode === 'single' ? (
                             <div className="relative flex-1">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -299,11 +430,38 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                                 <input
                                     type="text"
                                     value={ticker}
-                                    onChange={(e) => setTicker(e.target.value)}
-                                    placeholder="Enter Company Ticker (e.g. AAPL, TCS.NS)"
+                                    onChange={(e) => handleTickerChange(e.target.value)}
+                                    onFocus={() => { if (ticker.trim().length >= 1) setIsSuggestionsOpen(true); }}
+                                    onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 250)}
+                                    placeholder="Enter company name or ticker (e.g. Infosys, TCS, AAPL)"
                                     className="block w-full pl-11 pr-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow font-medium"
                                     disabled={loading}
                                 />
+                                {isSuggestionsOpen && singleSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#131B2F] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 text-left">
+                                        <div className="divide-y divide-slate-800/60 max-h-60 overflow-y-auto">
+                                            {singleSuggestions.map((item) => (
+                                                <div
+                                                    key={item.ticker}
+                                                    onMouseDown={() => handleSelectSuggestion(item)}
+                                                    className="p-3 hover:bg-blue-600/10 cursor-pointer flex items-center justify-between transition-colors group"
+                                                >
+                                                    <div>
+                                                        <div className="text-sm font-semibold text-white group-hover:text-blue-400">
+                                                            {item.name}
+                                                        </div>
+                                                        <div className="text-xs text-slate-400">
+                                                            {item.exchange} • {item.sector}
+                                                        </div>
+                                                    </div>
+                                                    <code className="text-xs font-mono font-bold text-blue-400 bg-[#0A0F1C] px-2 py-1 rounded border border-blue-500/30">
+                                                        {item.ticker}
+                                                    </code>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-1 gap-4">
@@ -311,7 +469,7 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                                     type="text"
                                     value={ticker1}
                                     onChange={(e) => setTicker1(e.target.value)}
-                                    placeholder="Company 1 (e.g. TCS.NS)"
+                                    placeholder="Company 1 (e.g. TCS or TCS.NS)"
                                     className="block w-1/2 px-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow font-medium"
                                     disabled={loading}
                                 />
@@ -319,7 +477,7 @@ export default function Dashboard({ externalMode, setExternalMode, resetKey }) {
                                     type="text"
                                     value={ticker2}
                                     onChange={(e) => setTicker2(e.target.value)}
-                                    placeholder="Company 2 (e.g. INFY.NS)"
+                                    placeholder="Company 2 (e.g. Infosys or INFY.NS)"
                                     className="block w-1/2 px-4 py-3 bg-[#0A0F1C] border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-white shadow-inner outline-none transition-shadow font-medium"
                                     disabled={loading}
                                 />
