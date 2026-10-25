@@ -1,4 +1,5 @@
 import React from 'react';
+import { GitCompare, Sparkles, CheckCircle2 } from 'lucide-react';
 import { formatPercentage, formatNumber, formatCurrency } from '../utils/formatters';
 
 export default function ComparisonView({ data }) {
@@ -17,40 +18,48 @@ export default function ComparisonView({ data }) {
 
     return (
         <div className="space-y-6 animate-in fade-in">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
-                <h3 className="text-xl font-bold text-slate-800 mb-6">Head-to-Head Quantitative Comparison</h3>
+            <div className="bg-[#131B2F] p-6 rounded-xl shadow-lg border border-slate-800 overflow-x-auto">
+                <div className="flex items-center gap-2 mb-6">
+                    <GitCompare className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-xl font-bold text-white">Head-to-Head Quantitative Comparison</h3>
+                </div>
                 <table className="w-full text-sm text-left border-collapse">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                    <thead className="text-xs uppercase bg-[#0A0F1C] border-b border-slate-800 text-slate-400">
                         <tr>
-                            <th className="px-4 py-3">Metric</th>
-                            <th className="px-4 py-3 text-blue-700">{c1.ticker}</th>
-                            <th className="px-4 py-3 text-emerald-700">{c2.ticker}</th>
+                            <th className="px-5 py-3.5 font-semibold">Financial Metric</th>
+                            <th className="px-5 py-3.5 font-bold text-blue-400 text-base">{c1.ticker}</th>
+                            <th className="px-5 py-3.5 font-bold text-emerald-400 text-base">{c2.ticker}</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-800/60">
                         {metricsList.map((m, i) => (
-                            <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                                <td className="px-4 py-3 font-medium text-slate-700">{m.label}</td>
-                                <td className="px-4 py-3 font-semibold text-slate-900">{m.format(c1.metrics[m.key])}</td>
-                                <td className="px-4 py-3 font-semibold text-slate-900">{m.format(c2.metrics[m.key])}</td>
+                            <tr key={i} className="hover:bg-slate-800/40 transition-colors">
+                                <td className="px-5 py-3.5 font-medium text-slate-300">{m.label}</td>
+                                <td className="px-5 py-3.5 font-semibold text-white">{m.format(c1.metrics[m.key])}</td>
+                                <td className="px-5 py-3.5 font-semibold text-white">{m.format(c2.metrics[m.key])}</td>
                             </tr>
                         ))}
-                        <tr className="bg-slate-50 border-t-2 border-slate-200">
-                            <td className="px-4 py-4 font-bold text-slate-800">Principles Passed</td>
-                            <td className="px-4 py-4 font-bold text-blue-700 text-lg">{c1.evaluations.passed_count} / {c1.evaluations.total_count}</td>
-                            <td className="px-4 py-4 font-bold text-emerald-700 text-lg">{c2.evaluations.passed_count} / {c2.evaluations.total_count}</td>
+                        <tr className="bg-[#0A0F1C]/60 border-t-2 border-slate-700">
+                            <td className="px-5 py-4 font-bold text-white flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-purple-400" />
+                                Principles Passed
+                            </td>
+                            <td className="px-5 py-4 font-bold text-blue-400 text-lg">{c1.evaluations.passed_count} / {c1.evaluations.total_count}</td>
+                            <td className="px-5 py-4 font-bold text-emerald-400 text-lg">{c2.evaluations.passed_count} / {c2.evaluations.total_count}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div className="bg-blue-50 p-6 rounded-lg shadow-sm border border-blue-100">
-                <h3 className="text-lg font-bold text-blue-900 mb-3">AI Comparison Analysis</h3>
-                <p className="text-blue-800 whitespace-pre-wrap leading-relaxed">
+            <div className="bg-[#131B2F] p-6 rounded-xl shadow-lg border border-blue-900/40">
+                <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-lg font-bold text-white">AI Comparative Research Analysis</h3>
+                </div>
+                <p className="text-slate-300 whitespace-pre-wrap leading-relaxed text-sm">
                     {data.ai_comparison || "AI Comparison unavailable. API key may be unconfigured."}
                 </p>
             </div>
         </div>
     );
 }
-

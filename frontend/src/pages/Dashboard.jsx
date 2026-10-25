@@ -33,6 +33,9 @@ export default function Dashboard({ externalMode, setExternalMode }) {
         } else if (externalMode === 'compare') {
             setMode('compare');
             setShowConfig(false);
+            if (ticker && !ticker1) {
+                setTicker1(ticker);
+            }
         } else if (externalMode === 'config') {
             setShowConfig(true);
         } else if (externalMode === 'overview') {
@@ -41,6 +44,27 @@ export default function Dashboard({ externalMode, setExternalMode }) {
             setShowConfig(false);
         }
     }, [externalMode]);
+
+    const switchMode = (newMode) => {
+        setMode(newMode);
+        if (setExternalMode) setExternalMode(newMode);
+        if (newMode === 'compare' && ticker && !ticker1) {
+            setTicker1(ticker);
+        }
+    };
+
+    const handlePopularClick = (t) => {
+        if (mode === 'compare') {
+            if (!ticker1 || (ticker1 && ticker2)) {
+                setTicker1(t);
+                setTicker2('');
+            } else {
+                setTicker2(t);
+            }
+        } else {
+            setTicker(t);
+        }
+    };
 
     const handleAnalyze = async (e) => {
         if (e) e.preventDefault();
@@ -93,38 +117,91 @@ export default function Dashboard({ externalMode, setExternalMode }) {
         }
     };
 
+    const isInitialScreen = !data && !compareData && !loading && !error && !showConfig;
+
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {!data && !compareData && !loading && !error && !showConfig && (
-                <div className="text-center py-20 px-4 mt-8">
+            {isInitialScreen && (
+                <div className="text-center py-16 px-4 mt-4">
                     <h1 className="text-5xl md:text-6xl font-extrabold text-[#C3D2FB] mb-6 tracking-tight max-w-4xl mx-auto leading-tight">
-                        Turn financial data into<br/>understandable investment<br/>research.
+                        {mode === 'compare' ? (
+                            <>Compare companies with<br/>institutional precision &<br/>zero hallucination.</>
+                        ) : (
+                            <>Turn financial data into<br/>understandable investment<br/>research.</>
+                        )}
                     </h1>
                     <p className="text-[#8B9CC3] text-lg max-w-3xl mx-auto mb-10">
-                        Evaluate real statements from Yfinance against institutional principles with<br/>complete calculation transparency and zero hallucination.
+                        {mode === 'compare'
+                            ? "Evaluate two stocks head-to-head on financial metrics, derived growth ratios, and institutional rules."
+                            : "Evaluate real statements from Yfinance against institutional principles with complete calculation transparency."}
                     </p>
 
+                    <div className="flex justify-center gap-2 mb-6">
+                        <button
+                            onClick={() => switchMode('single')}
+                            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${mode === 'single' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800'}`}
+                        >
+                            Single Analysis
+                        </button>
+                        <button
+                            onClick={() => switchMode('compare')}
+                            className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center ${mode === 'compare' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800'}`}
+                        >
+                            <GitCompare className="h-4 w-4 mr-2" />
+                            Compare Companies
+                        </button>
+                    </div>
+
                     <form onSubmit={handleAnalyze} className="max-w-2xl mx-auto mb-8">
-                        <div className="relative flex items-center bg-[#131B2F] border border-[#2A344A] rounded-xl overflow-hidden shadow-lg p-1">
-                            <div className="pl-4 text-slate-400">
-                                <Search className="h-5 w-5" />
+                        {mode === 'single' ? (
+                            <div className="relative flex items-center bg-[#131B2F] border border-[#2A344A] rounded-xl overflow-hidden shadow-lg p-1">
+                                <div className="pl-4 text-slate-400">
+                                    <Search className="h-5 w-5" />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={ticker}
+                                    onChange={(e) => setTicker(e.target.value)}
+                                    placeholder="Enter company ticker (e.g. NVDA, AAPL)"
+                                    className="w-full bg-transparent border-none text-white px-4 py-3 focus:outline-none focus:ring-0 placeholder-slate-500"
+                                    disabled={loading}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={loading || !ticker.trim()}
+                                    className="bg-[#1C2C4F] hover:bg-[#253966] text-blue-300 font-medium px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap"
+                                >
+                                    Analyze Company →
+                                </button>
                             </div>
-                            <input
-                                type="text"
-                                value={ticker}
-                                onChange={(e) => setTicker(e.target.value)}
-                                placeholder="NVDA"
-                                className="w-full bg-transparent border-none text-white px-4 py-3 focus:outline-none focus:ring-0 placeholder-slate-500"
-                                disabled={loading}
-                            />
-                            <button
-                                type="submit"
-                                disabled={loading || !ticker.trim()}
-                                className="bg-[#1C2C4F] hover:bg-[#253966] text-blue-300 font-medium px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap"
-                            >
-                                Analyze Company →
-                            </button>
-                        </div>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row items-center gap-3 bg-[#131B2F] border border-[#2A344A] rounded-xl p-2 shadow-lg">
+                                <input
+                                    type="text"
+                                    value={ticker1}
+                                    onChange={(e) => setTicker1(e.target.value)}
+                                    placeholder="Company 1 (e.g. TCS.NS)"
+                                    className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500"
+                                    disabled={loading}
+                                />
+                                <span className="text-slate-400 font-bold text-xs uppercase px-1">VS</span>
+                                <input
+                                    type="text"
+                                    value={ticker2}
+                                    onChange={(e) => setTicker2(e.target.value)}
+                                    placeholder="Company 2 (e.g. INFY.NS)"
+                                    className="w-full sm:w-1/2 bg-[#0A0F1C] border border-slate-700/80 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-slate-500"
+                                    disabled={loading}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={loading || !ticker1.trim() || !ticker2.trim()}
+                                    className="w-full sm:w-auto bg-[#1C2C4F] hover:bg-[#253966] text-blue-300 font-medium px-6 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
+                                >
+                                    Compare →
+                                </button>
+                            </div>
+                        )}
                     </form>
 
                     <div className="flex items-center justify-center gap-3 text-sm">
@@ -133,7 +210,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                             {['AAPL', 'MSFT', 'NVDA', 'TCS.NS', 'RELIANCE.NS', 'INFY.NS'].map(t => (
                                 <button 
                                     key={t} 
-                                    onClick={() => { setTicker(t); }} 
+                                    onClick={() => handlePopularClick(t)} 
                                     className="bg-[#111827]/80 border border-[#1F2937] hover:bg-[#1F2937] text-slate-300 px-4 py-1.5 rounded-md transition-colors text-xs font-medium"
                                 >
                                     {t}
@@ -144,18 +221,18 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                 </div>
             )}
 
-            {(data || compareData || showConfig) && (
+            {(!isInitialScreen || showConfig) && (
                 <div className="mb-6 bg-[#131B2F] p-5 rounded-xl shadow-sm border border-slate-800">
                     <div className="flex flex-col sm:flex-row gap-4 mb-5">
                         <div className="flex gap-2">
                             <button 
-                                onClick={() => { setMode('single'); if (setExternalMode) setExternalMode('single'); }} 
+                                onClick={() => switchMode('single')} 
                                 className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors ${mode === 'single' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'}`}
                             >
                                 Single Analysis
                             </button>
                             <button 
-                                onClick={() => { setMode('compare'); if (setExternalMode) setExternalMode('compare'); }} 
+                                onClick={() => switchMode('compare')} 
                                 className={`px-5 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center ${mode === 'compare' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'}`}
                             >
                                 <GitCompare className="h-4 w-4 mr-2" />
@@ -210,7 +287,7 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                         
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || (mode === 'single' ? !ticker.trim() : (!ticker1.trim() || !ticker2.trim()))}
                             className="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-semibold rounded-lg shadow text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-all min-w-[140px]"
                         >
                             {loading ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : null}
@@ -251,9 +328,13 @@ export default function Dashboard({ externalMode, setExternalMode }) {
                         <div className="absolute inset-0 border-4 border-[#1C2C4F] rounded-full"></div>
                         <div className="absolute inset-0 border-4 border-t-[#3B82F6] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">Analyzing {ticker || 'Company'}...</h3>
+                    <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                        {mode === 'compare' ? `Comparing ${ticker1.toUpperCase() || 'Company 1'} vs ${ticker2.toUpperCase() || 'Company 2'}...` : `Analyzing ${ticker.toUpperCase() || 'Company'}...`}
+                    </h3>
                     <p className="text-[#8B9CC3] mb-10 max-w-lg mx-auto text-sm leading-relaxed">
-                        Gathering official statements via Yfinance, computing derived metrics, and testing against configured principles.
+                        {mode === 'compare'
+                            ? "Gathering official statements for both companies via Yfinance, computing comparative metrics, and evaluating principle rules."
+                            : "Gathering official statements via Yfinance, computing derived metrics, and testing against configured principles."}
                     </p>
                     <div className="flex flex-wrap justify-center gap-4 text-xs font-medium">
                         <div className="flex items-center gap-2 bg-[#0A0F1C] border border-slate-800 text-slate-300 px-4 py-2.5 rounded-lg">
