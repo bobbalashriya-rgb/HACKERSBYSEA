@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finlytics-config
+  namespace: finlytics
+data:
+  WISPRFLOW_URL: "http://wisprflow-service.finlytics.svc.cluster.local:8002"
+  PORT: "8000"
