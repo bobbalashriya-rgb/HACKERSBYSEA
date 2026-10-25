@@ -6,10 +6,13 @@ ROOT_DIR="$(dirname "$DIR")"
 
 cd "$ROOT_DIR"
 
-# Ensure boto3 is installed
-if ! python3 -c "import boto3" 2>/dev/null; then
-    echo "Installing boto3..."
-    python3 -m pip install boto3
+# Prefer venv python if available
+if [ -f "$ROOT_DIR/venv/bin/python" ]; then
+    PYTHON_CMD="$ROOT_DIR/venv/bin/python"
+elif [ -f "$ROOT_DIR/backend/venv/bin/python" ]; then
+    PYTHON_CMD="$ROOT_DIR/backend/venv/bin/python"
+else
+    PYTHON_CMD="python3"
 fi
 
-python3 scripts/aws_manager.py "$@"
+"$PYTHON_CMD" "$DIR/aws_manager.py" "$@"

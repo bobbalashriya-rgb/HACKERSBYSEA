@@ -69,6 +69,13 @@ def find_finlytics_instance(ec2_client):
             for inst in reservation.get("Instances", []):
                 return inst
         return None
+    except NoCredentialsError:
+        print("\n❌ AWS Credentials not found!")
+        print("To connect your AWS account, create or edit .env.aws with:")
+        print("  AWS_ACCESS_KEY_ID=your_access_key")
+        print("  AWS_SECRET_ACCESS_KEY=your_secret_key")
+        print("  AWS_DEFAULT_REGION=us-east-1 (or your preferred region)")
+        sys.exit(1)
     except ClientError as e:
         print(f"❌ AWS Client Error: {e}")
         return None
