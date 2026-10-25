@@ -99,3 +99,4 @@ else
     echo "⚠️ Warning: No active Kubernetes context found. Manifests have been updated with ECR paths in ./k8s/"
     echo "When your EKS cluster is ready, connect and run: kubectl apply -f k8s/"
 fi
+

@@ -4,3 +4,4 @@ metadata:
   name: finlytics
   labels:
     app.kubernetes.io/name: finlytics
+

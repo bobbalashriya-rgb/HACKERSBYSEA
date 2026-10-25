@@ -1,6 +1,8 @@
 # Environments
 .env
+.env.aws
 .env.local
+*.pem
 .venv
 venv/
 ENV/

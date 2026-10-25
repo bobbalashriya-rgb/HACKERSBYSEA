@@ -203,3 +203,4 @@ export AWS_REGION="us-east-1"
 * **View Frontend Logs**: `kubectl logs -l app=finlytics-frontend -n finlytics -f`
 * **Check Service Endpoints**: `kubectl get svc -n finlytics`
 * **Describe Failing Pod**: `kubectl describe pod <POD_NAME> -n finlytics`
+

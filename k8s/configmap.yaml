@@ -6,3 +6,4 @@ metadata:
 data:
   WISPRFLOW_URL: "http://wisprflow-service.finlytics.svc.cluster.local:8002"
   PORT: "8000"
+
