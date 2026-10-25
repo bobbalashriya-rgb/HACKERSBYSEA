@@ -16,7 +16,6 @@ def generate_research_report(company_data: Any, metrics_dict: Dict, evaluation_r
         
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.5-flash', generation_config={"response_mime_type": "application/json"})
         
         profile_str = json.dumps(company_data.profile.model_dump(), default=str)
         metrics_str = json.dumps(metrics_dict, default=str)
@@ -61,7 +60,13 @@ def generate_research_report(company_data: Any, metrics_dict: Dict, evaluation_r
         }}
         """
         
-        response = model.generate_content(prompt)
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+            response = model.generate_content(prompt)
+        except Exception:
+            model = genai.GenerativeModel('gemini-2.0-flash', generation_config={"response_mime_type": "application/json"})
+            response = model.generate_content(prompt)
+
         result = json.loads(response.text)
         result['disclaimer'] = DISCLAIMER
         return result
@@ -77,7 +82,6 @@ def answer_financial_question(context: dict, question: str) -> str:
         return "AI service is not configured. Please add GEMINI_API_KEY to your environment."
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.5-flash')
         prompt = f"""
         You are 'Finolitics', an AI financial assistant. Answer the user's question using ONLY the provided financial context.
         
@@ -91,10 +95,15 @@ def answer_financial_question(context: dict, question: str) -> str:
         
         QUESTION: {question}
         """
-        return model.generate_content(prompt).text
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            return model.generate_content(prompt).text
+        except Exception:
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            return model.generate_content(prompt).text
     except Exception as e:
-        logger.error(f"Failed to generate answer: {e}")
-        return "Failed to generate an answer due to an AI service error."
+        logger.error(f"Failed to generate answer: {e}", exc_info=True)
+        return f"Failed to generate answer: {str(e)}"
 
 def generate_comparison_report(context1: dict, context2: dict) -> Union[Dict[str, Any], str]:
     """Generates an institutional AI comparison report highlighting differences in metrics."""
@@ -103,10 +112,6 @@ def generate_comparison_report(context1: dict, context2: dict) -> Union[Dict[str
         return "AI service is not configured. Please add GEMINI_API_KEY to your environment."
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            'gemini-3.5-flash',
-            generation_config={"response_mime_type": "application/json"}
-        )
         t1 = context1.get("profile", {}).get("ticker", "Company 1")
         t2 = context2.get("profile", {}).get("ticker", "Company 2")
         
@@ -176,7 +181,19 @@ def generate_comparison_report(context1: dict, context2: dict) -> Union[Dict[str
             "disclaimer": "{DISCLAIMER}"
         }}
         """
-        response = model.generate_content(prompt)
+        try:
+            model = genai.GenerativeModel(
+                'gemini-1.5-flash',
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = model.generate_content(prompt)
+        except Exception:
+            model = genai.GenerativeModel(
+                'gemini-2.0-flash',
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = model.generate_content(prompt)
+
         try:
             parsed = json.loads(response.text)
             parsed["disclaimer"] = DISCLAIMER
@@ -184,5 +201,5 @@ def generate_comparison_report(context1: dict, context2: dict) -> Union[Dict[str
         except Exception:
             return response.text
     except Exception as e:
-        logger.error(f"Failed to generate comparison: {e}")
-        return "Failed to generate comparison due to an AI service error."
+        logger.error(f"Failed to generate comparison: {e}", exc_info=True)
+        return f"AI comparison error: {str(e)}"
