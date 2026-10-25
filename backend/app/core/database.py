@@ -3,7 +3,12 @@ from sqlalchemy.orm import sessionmaker
 from app.models.principles import Base, InvestmentPrinciple, Operator
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./finolitics.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    if os.getenv("VERCEL"):
+        DATABASE_URL = "sqlite:////tmp/finolitics.db"
+    else:
+        DATABASE_URL = "sqlite:///./finolitics.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
