@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import google.generativeai as genai
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 
 logger = logging.getLogger(__name__)
 
@@ -96,27 +96,93 @@ def answer_financial_question(context: dict, question: str) -> str:
         logger.error(f"Failed to generate answer: {e}")
         return "Failed to generate an answer due to an AI service error."
 
-def generate_comparison_report(context1: dict, context2: dict) -> str:
-    """Generates an AI comparison report highlighting differences in metrics."""
+def generate_comparison_report(context1: dict, context2: dict) -> Union[Dict[str, Any], str]:
+    """Generates an institutional AI comparison report highlighting differences in metrics."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "your_gemini_api_key_here":
         return "AI service is not configured. Please add GEMINI_API_KEY to your environment."
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.5-flash')
+        model = genai.GenerativeModel(
+            'gemini-3.5-flash',
+            generation_config={"response_mime_type": "application/json"}
+        )
+        t1 = context1.get("profile", {}).get("ticker", "Company 1")
+        t2 = context2.get("profile", {}).get("ticker", "Company 2")
+        
         prompt = f"""
-        Compare these two companies based ONLY on the supplied financial data and principle evaluations.
-        
-        COMPANY 1: {json.dumps(context1, default=str)}
-        COMPANY 2: {json.dumps(context2, default=str)}
-        
-        RULES:
-        1. Compare major differences in revenue growth, ROE, ROCE, debt to equity, operating margin, free cash flow, and principle evaluations.
-        2. Do NOT invent data.
-        3. Do NOT produce a definitive buy, sell, or hold recommendation.
-        4. Always append this exact disclaimer at the end: "{DISCLAIMER}"
+        You are a senior equity research analyst at an institutional quantitative fund.
+        Perform an institutional-grade, highly engaging comparative research analysis between {t1} and {t2} based STRICTLY on the verifiable financial data and principle evaluations provided below.
+
+        CRITICAL RULES:
+        1. NO HALLUCINATIONS: Use ONLY the numbers and metrics supplied. Do NOT invent or estimate unverified financial facts.
+        2. SPECIFIC NUMERICAL EVIDENCE: Whenever discussing a metric (e.g. ROE, ROCE, Margin, Debt/Equity, Revenue Growth, Free Cash Flow), quote the exact numerical value and how it compares to the peer.
+        3. OBJECTIVE & UNBIASED: Do NOT produce a definitive buy, sell, or hold recommendation. Analyze the trade-offs rigorously.
+        4. PRINCIPLE THRESHOLDS: Explicitly reference how each company performed against the institutional principles.
+
+        DATA CONTEXT:
+        {t1} DATA: {json.dumps(context1, default=str)}
+        {t2} DATA: {json.dumps(context2, default=str)}
+
+        REQUIRED JSON OUTPUT FORMAT:
+        {{
+            "executive_verdict": "Comprehensive 2-3 sentence executive synthesis comparing overall financial quality, competitive positioning, and core trade-offs between {t1} and {t2}.",
+            "category_battles": [
+                {{
+                    "category": "Growth & Scale",
+                    "leader": "{t1}" or "{t2}" or "Tied",
+                    "analysis": "Specific comparison of revenue growth and scale with exact numbers."
+                }},
+                {{
+                    "category": "Capital Efficiency & Moat",
+                    "leader": "{t1}" or "{t2}" or "Tied",
+                    "analysis": "Specific comparison of ROE, ROCE, and moat durability with exact numbers."
+                }},
+                {{
+                    "category": "Financial Resilience & Solvency",
+                    "leader": "{t1}" or "{t2}" or "Tied",
+                    "analysis": "Specific comparison of Debt to Equity, leverage, and balance sheet safety."
+                }},
+                {{
+                    "category": "Operating Margins & Cash Flow",
+                    "leader": "{t1}" or "{t2}" or "Tied",
+                    "analysis": "Specific comparison of operating margin and Free Cash Flow generation."
+                }}
+            ],
+            "company_edges": {{
+                "c1_edges": [
+                    "Key quantifiable advantage 1 for {t1} with metric numbers",
+                    "Key quantifiable advantage 2 for {t1} with metric numbers"
+                ],
+                "c2_edges": [
+                    "Key quantifiable advantage 1 for {t2} with metric numbers",
+                    "Key quantifiable advantage 2 for {t2} with metric numbers"
+                ]
+            }},
+            "vulnerabilities": {{
+                "c1_risks": [
+                    "Primary financial risk or weak metric for {t1}",
+                    "Secondary concern or failed principle for {t1}"
+                ],
+                "c2_risks": [
+                    "Primary financial risk or weak metric for {t2}",
+                    "Secondary concern or failed principle for {t2}"
+                ]
+            }},
+            "investor_scenarios": {{
+                "bull_case_c1": "When an institutional investor would favor {t1} (e.g. higher stability, lower debt, or specific moat).",
+                "bull_case_c2": "When an institutional investor would favor {t2} (e.g. faster growth, higher capital returns, or value discount)."
+            }},
+            "disclaimer": "{DISCLAIMER}"
+        }}
         """
-        return model.generate_content(prompt).text
+        response = model.generate_content(prompt)
+        try:
+            parsed = json.loads(response.text)
+            parsed["disclaimer"] = DISCLAIMER
+            return parsed
+        except Exception:
+            return response.text
     except Exception as e:
         logger.error(f"Failed to generate comparison: {e}")
         return "Failed to generate comparison due to an AI service error."

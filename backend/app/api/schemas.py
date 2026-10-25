@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from app.services.company_data import NormalizedCompanyData
 from app.services.financial_metrics import FinancialMetricsResult
 from app.services.investment_principles import PrincipleEvaluationReport
@@ -62,4 +62,4 @@ class ComparisonData(BaseModel):
 
 class CompareResponse(BaseModel):
     companies: List[ComparisonData]
-    ai_comparison: str
+    ai_comparison: Union[Dict[str, Any], str]
