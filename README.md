@@ -1,4 +1,4 @@
-# Finolitics AI
+# Finolytics AI
 
 Finolitics AI is a modern, AI-powered investment research assistant designed to turn raw financial data into understandable, explainable investment research. It bridges the gap between hard quantitative data and qualitative AI synthesis, operating under strict data-integrity rules to prevent hallucination.
 
